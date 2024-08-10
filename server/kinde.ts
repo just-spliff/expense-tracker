@@ -1,7 +1,9 @@
+import { createMiddleware } from "hono/factory";
 import {
   createKindeServerClient,
   GrantType,
   type SessionManager,
+  type UserType,
 } from "@kinde-oss/kinde-typescript-sdk";
 import { type Context } from "node_modules/hono/dist/types/jsx/dom/render";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
@@ -45,4 +47,27 @@ export const sessionManager = (c: Context): SessionManager => ({
       deleteCookie(c, key);
     });
   },
+});
+
+type Env = {
+  Variables: {
+    user: UserType;
+  };
+};
+
+export const getUser = createMiddleware<Env>(async (c, next) => {
+  try {
+    const manager = sessionManager(c);
+    const isAuthenticated = await kindeClient.isAuthenticated(manager);
+    if (!isAuthenticated) {
+      return c.json({ errorr: "Unauthorized" }, 401);
+    } else {
+      const user = await kindeClient.getUserProfile(manager);
+      c.set("user", user);
+      await next();
+    }
+  } catch (e) {
+    console.error(e);
+    return c.json({ errorr: "Unauthorized" }, 401);
+  }
 });
